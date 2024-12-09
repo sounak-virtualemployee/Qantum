@@ -13,7 +13,7 @@ const checkNumber = async (req, res) => {
   try {
     const user = await User.findOne({ number });
     if (user) {
-      // If user exists, send OTP for login
+      // If user exists, send OTP for Login
       const verification = await client.verify.v2
       .services(process.env.TWILIO_VERIFY_SERVICE_SID)
       .verifications.create({ to: number, channel: "sms" });
