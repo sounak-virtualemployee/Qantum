@@ -74,7 +74,35 @@ const registerUser = async (req, res) => {
   }
 };
 
+
+const verifyOtp = async (req, res) => {
+  const { number, otp } = req.body;
+
+  try {
+    // Verify OTP using Twilio
+    const verificationCheck = await client.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verificationChecks.create({ to: number, code: otp });
+
+      const status=verificationCheck.status;
+    if (verificationCheck.status !== 'approved') {
+      return res.status(400).json({ message: 'Invalid OTP or verification failed',status });
+    }
+
+    // If OTP is valid, ensure user exists and finalize the registration
+    const user = await User.findOne({ number });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ message: 'Registration or login successful', user,verificationCheck });
+  } catch (error) {
+    res.status(500).json({ message: 'Error verifying OTP', error: error.message });
+  }
+};
+
 module.exports = {
   checkNumber,
   registerUser,
+  verifyOtp
 };
