@@ -1,6 +1,8 @@
 const User = require("../models/user");
 const dotenv = require("dotenv");
 const twilio = require("twilio");
+const jwt = require("jsonwebtoken");
+
 require("dotenv").config();
 
 dotenv.config();
@@ -23,7 +25,11 @@ const checkNumber = async (req, res) => {
 
       return res
         .status(200)
-        .json({ message: "Number is registered, OTP sent", registered: true,user });
+        .json({
+          message: "Number is registered, OTP sent",
+          registered: true,
+          user,
+        });
     } else {
       // If user does not exist, proceed to registration
       return res
@@ -63,17 +69,14 @@ const registerUser = async (req, res) => {
     });
     await newUser.save();
 
-    res
-      .status(200)
-      .json({
-        message: "OTP sent successfully, complete verification",
-        userId: newUser._id,
-      });
+    res.status(200).json({
+      message: "OTP sent successfully, complete verification",
+      userId: newUser._id,
+    });
   } catch (error) {
     res.status(500).json({ message: "Error sending OTP", error });
   }
 };
-
 
 const verifyOtp = async (req, res) => {
   const { number, otp } = req.body;
@@ -84,25 +87,42 @@ const verifyOtp = async (req, res) => {
       .services(process.env.TWILIO_VERIFY_SERVICE_SID)
       .verificationChecks.create({ to: number, code: otp });
 
-      const status=verificationCheck.status;
-    if (verificationCheck.status !== 'approved') {
-      return res.status(400).json({ message: 'Invalid OTP or verification failed',status });
+    const status = verificationCheck.status;
+
+    if (status !== "approved") {
+      return res
+        .status(400)
+        .json({ message: "Invalid OTP or verification failed", status });
     }
 
-    // If OTP is valid, ensure user exists and finalize the registration
+    // If OTP is valid, ensure user exists
     const user = await User.findOne({ number });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ message: 'Registration or login successful', user,verificationCheck });
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, number: user.number }, // Payload
+      process.env.JWT_SECRET, // Secret key
+      // Token expiry time
+    );
+
+    res.status(200).json({
+      message: "Registration or login successful",
+      user,
+      token, // Send the generated token
+      status,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error verifying OTP', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error verifying OTP", error: error.message });
   }
 };
 
 module.exports = {
   checkNumber,
   registerUser,
-  verifyOtp
+  verifyOtp,
 };
