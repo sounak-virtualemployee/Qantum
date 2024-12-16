@@ -1,12 +1,11 @@
 const express = require('express');
-const {
-  checkNumber,
-  registerUser,
-  verifyOtp
-} = require('../controllers/userController');
+const verifyToken = require('../middlewares/authMiddleware');
+const { checkNumber } = require('../controllers/userController');
+
 
 const router = express.Router();
-router.get('/check/:number', checkNumber); // Check if number exists
-router.post('/register/:number', registerUser); 
-router.post('/verify-otp', verifyOtp);
+router.get('/check/:Mobile', checkNumber); // Check if number exists
+// router.post('/register/:Mobile', registerUser); 
+// router.post('/verify-otp', verifyOtp);
+// router.put('/device-token',verifyToken, deviceToken);
 module.exports = router;

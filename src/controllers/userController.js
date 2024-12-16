@@ -2,9 +2,11 @@ const User = require("../models/user");
 const dotenv = require("dotenv");
 const twilio = require("twilio");
 const jwt = require("jsonwebtoken");
-
+const { makeApiCall } = require("./bluizeController");
+const https = require("https");
+const axios = require("axios");
+const { log } = require("console");
 require("dotenv").config();
-
 dotenv.config();
 
 const client = twilio(
@@ -12,117 +14,80 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
 const checkNumber = async (req, res) => {
-  const { number } = req.params;
+  const { Mobile } = req.params;
 
   try {
-    const user = await User.findOne({ number });
-    if (user) {
-      // If user exists, send OTP for Login
-      const verification = await client.verify.v2
-        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-        .verifications.create({ to: number, channel: "sms" });
+    const mobileWithoutCountryCode = Mobile.replace(/^\+?\d{1,2}/, "");
+    console.log(
+      `Processed Mobile without country code: ${mobileWithoutCountryCode}`
+    );
+    // Step 1: Fetch access token
+    const tokenData = await makeApiCall();
+    console.log(tokenData);
 
-      return res
-        .status(200)
-        .json({
+    if (!tokenData || !tokenData.access_token) {
+      return res.status(500).json({ message: "Failed to fetch access token" });
+    }
+    console.log(`Mobile parameter: ${Mobile}`);
+    console.log(`Authorization Header: Bearer ${tokenData.access_token}`);
+
+    // Step 2: Use access token to check mobile number details
+    const apiUrl = `https://144.6.125.194:18009/bluize/adapter/bridgeconnect/api/client/mobilephone/${mobileWithoutCountryCode}`;
+    const headers = {
+      Authorization: `Bearer ${tokenData.access_token}`,
+    };
+    console.log(`Requesting details for Mobile: ${Mobile}`);
+    console.log(`API URL: ${apiUrl}`);
+
+    const response = await axios.get(apiUrl, { headers, httpsAgent });
+    console.log("API Response:", response.data);
+
+    // If the API returns details, send OTP for login
+    if (response.data) {
+      const user = await User.findOne({ Mobile });
+
+      if (user) {
+        const verification = await client.verify.v2
+          .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+          .verifications.create({ to: Mobile, channel: "sms" });
+
+        return res.status(200).json({
           message: "Number is registered, OTP sent",
           registered: true,
           user,
         });
-    } else {
-      // If user does not exist, proceed to registration
+      }
+    }
+
+    // If no details found, respond with registration needed
+    return res
+      .status(200)
+      .json({ message: "Number is not registered", registered: false });
+  } catch (error) {
+    // Handle specific error for "Message: 'Not found'"
+    if (
+      error.response &&
+      error.response.data &&
+      error.response.data.Message === "Not found"
+    ) {
       return res
         .status(200)
         .json({ message: "Number is not registered", registered: false });
     }
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error });
-  }
-};
 
-const registerUser = async (req, res) => {
-  const { number } = req.params;
-  const { firstName, lastName, dob, postalCode, email, gender } = req.body;
-
-  try {
-    // Check if number already exists
-    const existingUser = await User.findOne({ number });
-    if (existingUser) {
-      return res.status(409).json({ message: "Number is already registered" });
-    }
-
-    // Send OTP via Twilio
-    const verification = await client.verify.v2
-      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verifications.create({ to: number, channel: "sms" });
-
-    // Temporarily save user details in the database (without verification)
-    const newUser = new User({
-      number,
-      firstName,
-      lastName,
-      dob,
-      postalCode,
-      email,
-      gender,
-    });
-    await newUser.save();
-
-    res.status(200).json({
-      message: "OTP sent successfully, complete verification",
-      userId: newUser._id,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error sending OTP", error });
-  }
-};
-
-const verifyOtp = async (req, res) => {
-  const { number, otp } = req.body;
-
-  try {
-    // Verify OTP using Twilio
-    const verificationCheck = await client.verify.v2
-      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verificationChecks.create({ to: number, code: otp });
-
-    const status = verificationCheck.status;
-
-    if (status !== "approved") {
-      return res
-        .status(400)
-        .json({ message: "Invalid OTP or verification failed", status });
-    }
-
-    // If OTP is valid, ensure user exists
-    const user = await User.findOne({ number });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, number: user.number }, // Payload
-      process.env.JWT_SECRET, // Secret key
-      // Token expiry time
+    console.error(
+      "Error in checkNumber:",
+      error.response?.data || error.message
     );
-
-    res.status(200).json({
-      message: "Registration or login successful",
-      user,
-      token, // Send the generated token
-      status,
-    });
-  } catch (error) {
-    res
+    return res
       .status(500)
-      .json({ message: "Error verifying OTP", error: error.message });
+      .json({ message: "Server error", error: error.message });
   }
 };
 
 module.exports = {
   checkNumber,
-  registerUser,
-  verifyOtp,
 };

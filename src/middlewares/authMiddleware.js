@@ -10,22 +10,19 @@ const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-
-    
-    if (decoded.type === "Photographer") {
+    if (decoded._id) {
       req.user = decoded; // Attach user info to the request object
-      // console.log("hi", decoded);
-    }
-
-    else if (decoded.type !== "Photographer") {
+      console.log("hi", decoded);
+    } else if (!decoded._id) {
       return res.status(403).json({ error: "Access forbidden: Admins only" });
     }
-
 
     next(); // Proceed to the next middleware or route handler
   } catch (error) {
     console.error("Token verification failed:", error);
-    return res.status(403).json({ message: "Forbidden: Invalid token,Please Login Again" });
+    return res
+      .status(403)
+      .json({ message: "Forbidden: Invalid token,Please Login Again" });
   }
 };
 
