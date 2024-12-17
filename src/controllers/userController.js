@@ -191,8 +191,8 @@ const registerUser = async (req, res) => {
   } catch (error) {
     console.log("Error during registration:", error.message);
     res.status(500).json({
-      message: error.response?.data,
-      // error: error.response?.data || error.message,
+      message: error.response?.data|| error.message,
+      error: error.response?.data || error.message,
     });
   }
 };
