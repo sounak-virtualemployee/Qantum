@@ -16,7 +16,7 @@ app.use(cors());
 app.use('/user', userRoutes);
 
 app.get('/',(req,res)=>{
-   res.json({message:"Hello"})
+   res.json({message:"Hello The Backend Is In Running Condition"})
 })
 
 app.listen(PORT, ()=>{

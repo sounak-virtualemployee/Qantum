@@ -88,6 +88,116 @@ const checkNumber = async (req, res) => {
   }
 };
 
+const registerUser = async (req, res) => {
+  const { Mobile } = req.params;
+  const { GivenNames, Surname, DateOfBirth, PostCode, Email, Gender } =
+    req.body;
+
+  try {
+    const mobileWithoutCountryCode = Mobile.replace(/^\+?\d{1,2}/, "");
+
+    // Step 1: Validate input
+    if (!Mobile) {
+      return res.status(400).json({ message: "Mobile number is required" });
+    }
+
+    // Step 2: Check for existing user
+    const existingUser = await User.findOne({ Mobile });
+    if (existingUser) {
+      return res
+        .status(409)
+        .json({ message: "Mobile number already registered" });
+    }
+
+    // Step 3: Get access token
+    const tokenResponse = await makeApiCall();
+    const access_token = tokenResponse.access_token;
+
+    // Step 4: Send user data to third-party API
+    const userData = {
+      GivenNames,
+      Surname,
+      Mobile: mobileWithoutCountryCode,
+      DateOfBirth,
+      PostCode,
+      Email,
+      Gender,
+    };
+
+    const thirdPartyResponse = await axios.post(
+      "https://144.6.125.194:18009/bluize/adapter/bridgeconnect/api/client",
+      userData,
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
+        },
+        httpsAgent,
+      }
+    );
+
+    const thirdPartyData = thirdPartyResponse.data;
+    console.log(thirdPartyData);
+
+    // Step 5: Save third-party data to MongoDB
+    const newUser = new User({
+      Id: thirdPartyData.Id,
+      BluizeId: thirdPartyData.BluizeId,
+      CardNumber: thirdPartyData.CardNumber,
+      GivenNames: thirdPartyData.GivenNames,
+      Surname: thirdPartyData.Surname,
+      Salutation: thirdPartyData.Salutation,
+      PreferredName: thirdPartyData.PreferredName,
+      Email: thirdPartyData.Email,
+      Mobile: Mobile,
+      Address: thirdPartyData.Address,
+      PostCode: thirdPartyData.PostCode,
+      Suburb: thirdPartyData.Suburb,
+      State: thirdPartyData.State,
+      Gender: thirdPartyData.Gender,
+      DateOfBirth: thirdPartyData.DateOfBirth,
+      DateJoined: thirdPartyData.DateJoined,
+      PointsBalance: thirdPartyData.PointsBalance,
+      PointsValue: thirdPartyData.PointsValue,
+      StatusPoints: thirdPartyData.StatusPoints,
+      StatusTier: thirdPartyData.StatusTier,
+      RequiredStatusPointsForNextTier:
+        thirdPartyData.RequiredStatusPointsForNextTier,
+      NextStatusTier: thirdPartyData.NextStatusTier,
+      MembershipType: thirdPartyData.MembershipType,
+      MembershipCategory: thirdPartyData.MembershipCategory,
+      AccountAvailableBalance: thirdPartyData.AccountAvailableBalance,
+      AccountType: thirdPartyData.AccountType,
+      AcceptsEmail: thirdPartyData.AcceptsEmail,
+      AcceptsSMS: thirdPartyData.AcceptsSMS,
+      AcceptsMailouts: thirdPartyData.AcceptsMailouts,
+      RewardCount: thirdPartyData.RewardCount,
+      Interests: thirdPartyData.Interests,
+    });
+
+    await newUser.save();
+    console.log("New User Saved: ", newUser);
+    // Step 6: Send OTP using Twilio
+    await client.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verifications.create({ to: Mobile, channel: "sms" });
+
+    // Step 7: Respond to the client
+    res.status(200).json({
+      message: "User registered successfully, OTP sent.",
+      userId: newUser._id,
+      thirdPartyData,
+    });
+  } catch (error) {
+    console.log("Error during registration:", error.message);
+    res.status(500).json({
+      message: error.response?.data,
+      // error: error.response?.data || error.message,
+    });
+  }
+};
+
 module.exports = {
   checkNumber,
+  registerUser,
 };

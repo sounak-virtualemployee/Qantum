@@ -47,42 +47,42 @@ const client = twilio(
 //   }
 // };
 
-const registerUser = async (req, res) => {
-  const { Mobile } = req.params;
-  const { GivenNames, Surname, dob, PostCode, Email, Gender } = req.body;
+// const registerUser = async (req, res) => {
+//   const { Mobile } = req.params;
+//   const { GivenNames, Surname, DateOfBirth, PostCode, Email, Gender } = req.body;
 
-  try {
-    // Check if number already exists
-    const existingUser = await User.findOne({ Mobile });
-    if (existingUser) {
-      return res.status(409).json({ message: "Number is already registered" });
-    }
+//   try {
+//     // Check if number already exists
+//     const existingUser = await User.findOne({ Mobile });
+//     if (existingUser) {
+//       return res.status(409).json({ message: "Number is already registered" });
+//     }
 
-    // Send OTP via Twilio
-    const verification = await client.verify.v2
-      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verifications.create({ to: Mobile, channel: "sms" });
+//     // Send OTP via Twilio
+//     const verification = await client.verify.v2
+//       .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+//       .verifications.create({ to: Mobile, channel: "sms" });
 
-    // Temporarily save user details in the database (without verification)
-    const newUser = new User({
-      Mobile,
-      GivenNames,
-      Surname,
-      dob,
-      PostCode,
-      Email,
-      Gender,
-    });
-    await newUser.save();
+//     // Temporarily save user details in the database (without verification)
+//     const newUser = new User({
+//       Mobile,
+//       GivenNames,
+//       Surname,
+//       DateOfBirth,
+//       PostCode,
+//       Email,
+//       Gender,
+//     });
+//     await newUser.save();
 
-    res.status(200).json({
-      message: "OTP sent successfully, complete verification",
-      userId: newUser._id,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error sending OTP", error });
-  }
-};
+//     res.status(200).json({
+//       message: "OTP sent successfully, complete verification",
+//       userId: newUser._id,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error sending OTP", error });
+//   }
+// };
 
 const verifyOtp = async (req, res) => {
   const { Mobile, otp } = req.body;
