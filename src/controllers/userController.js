@@ -13,6 +13,7 @@ const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
+const Bluize_Api = process.env.BLUIZE_API;
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -35,7 +36,7 @@ const checkNumber = async (req, res) => {
     console.log(`Authorization Header: Bearer ${tokenData.access_token}`);
 
     // Step 2: Use access token to check mobile number details
-    const apiUrl = `https://144.6.125.194:18009/bluize/adapter/bridgeconnect/api/client/mobilephone/${mobileWithoutCountryCode}`;
+    const apiUrl = `${Bluize_Api}/client/mobilephone/${mobileWithoutCountryCode}`;
     const headers = {
       Authorization: `Bearer ${tokenData.access_token}`,
     };
@@ -125,7 +126,7 @@ const registerUser = async (req, res) => {
     };
 
     const thirdPartyResponse = await axios.post(
-      "https://144.6.125.194:18009/bluize/adapter/bridgeconnect/api/client",
+      `${Bluize_Api}/client`,
       userData,
       {
         headers: {
@@ -191,13 +192,57 @@ const registerUser = async (req, res) => {
   } catch (error) {
     console.log("Error during registration:", error.message);
     res.status(500).json({
-      message: error.response?.data|| error.message,
+      message: error.response?.data || error.message,
       error: error.response?.data || error.message,
     });
+  }
+};
+
+const verifyOtp = async (req, res) => {
+  const { Mobile, otp } = req.body;
+
+  try {
+    // Verify OTP using Twilio
+    const verificationCheck = await client.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verificationChecks.create({ to: Mobile, code: otp });
+
+    const status = verificationCheck.status;
+
+    if (status !== "approved") {
+      return res
+        .status(400)
+        .json({ message: "Invalid OTP or verification failed", status });
+    }
+
+    // If OTP is valid, ensure user exists
+    const user = await User.findOne({ Mobile });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { _id: user._id, number: user.Mobile, Id: user.Id }, // Payload
+      process.env.JWT_SECRET // Secret key
+      // Token expiry time
+    );
+
+    res.status(200).json({
+      message: "Registration or login successful",
+      user,
+      token, // Send the generated token
+      status,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error verifying OTP", error: error.message });
   }
 };
 
 module.exports = {
   checkNumber,
   registerUser,
+  verifyOtp
 };
