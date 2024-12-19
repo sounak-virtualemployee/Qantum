@@ -127,27 +127,27 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-const deviceToken = async (req, res) => {
-  const { device_token } = req.body;
-  const user_id = req.user._id;
-  console.log(user_id);
-  console.log(device_token);
-  try {
-    const updateUser = await UserModel.findOneAndUpdate(
-      { _id: user_id },
-      { device_token },
-      { new: true }
-    );
-    console.log(updateUser);
+// const deviceToken = async (req, res) => {
+//   const { device_token } = req.body;
+//   const user_id = req.user._id;
+//   console.log(user_id);
+//   console.log(device_token);
+//   try {
+//     const updateUser = await UserModel.findOneAndUpdate(
+//       { _id: user_id },
+//       { device_token },
+//       { new: true }
+//     );
+//     console.log(updateUser);
 
-    if (!updateUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.status(200).json({ user: updateUser });
-  } catch (error) {
-    res.status(500).json({ message: "Error updating event", error });
-  }
-};
+//     if (!updateUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     res.status(200).json({ user: updateUser });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error updating event", error });
+//   }
+// };
 
 module.exports = {
   checkNumber,

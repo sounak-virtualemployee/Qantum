@@ -33,6 +33,7 @@ const userSchema = new mongoose.Schema({
   AcceptsMailouts: { type: Boolean },
   RewardCount: { type: Number },
   Interests: { type: Array },
+  device_token: { type: String },
 });
 
 const User = mongoose.model("User", userSchema);

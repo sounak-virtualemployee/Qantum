@@ -14,7 +14,6 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 const Bluize_Api = process.env.BLUIZE_API;
-
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const checkNumber = async (req, res) => {
@@ -49,7 +48,7 @@ const checkNumber = async (req, res) => {
     // If the API returns details, send OTP for login
     if (response.data) {
       const user = await User.findOne({ Mobile });
-      console.log("mongo", user);
+      console.log("mongoDb Data", user);
 
       if (user) {
         const verification = await client.verify.v2
@@ -97,7 +96,7 @@ const registerUser = async (req, res) => {
     req.body;
 
   try {
-    
+
     const mobileWithoutCountryCode = Mobile.replace(/^\+?\d{1,2}/, "");
 
     // Step 1: Validate input
@@ -244,8 +243,32 @@ const verifyOtp = async (req, res) => {
   }
 };
 
+const deviceToken = async (req, res) => {
+  const { device_token } = req.body;
+  const user_id = req.user._id;
+  console.log(user_id);
+  console.log(device_token);
+  try {
+    const updateUser = await User.findOneAndUpdate(
+      { _id: user_id },
+      { device_token },
+      { new: true }
+    );
+    console.log(updateUser);
+
+    if (!updateUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user: updateUser });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating Token", error });
+  }
+};
+
+
 module.exports = {
   checkNumber,
   registerUser,
   verifyOtp,
+  deviceToken
 };
