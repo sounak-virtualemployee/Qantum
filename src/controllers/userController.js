@@ -49,12 +49,14 @@ const checkNumber = async (req, res) => {
     // If the API returns details, send OTP for login
     if (response.data) {
       const user = await User.findOne({ Mobile });
+      console.log("mongo", user);
 
       if (user) {
         const verification = await client.verify.v2
           .services(process.env.TWILIO_VERIFY_SERVICE_SID)
           .verifications.create({ to: Mobile, channel: "sms" });
 
+        console.log("twilio", verification);
         return res.status(200).json({
           message: "Number is registered, OTP sent",
           registered: true,
@@ -95,6 +97,7 @@ const registerUser = async (req, res) => {
     req.body;
 
   try {
+    
     const mobileWithoutCountryCode = Mobile.replace(/^\+?\d{1,2}/, "");
 
     // Step 1: Validate input
@@ -244,5 +247,5 @@ const verifyOtp = async (req, res) => {
 module.exports = {
   checkNumber,
   registerUser,
-  verifyOtp
+  verifyOtp,
 };
